@@ -1,0 +1,11 @@
+syntax = "proto3";
+package proto;
+
+// import "google/protobuf/timestamp.proto";
+
+option go_package = "./../proto";
+
+message Test {
+    string name = 1;
+    fixed64 id = 2;
+}
