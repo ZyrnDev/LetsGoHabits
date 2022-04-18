@@ -1,4 +1,4 @@
 mounts/proto/**/*
-mounts/data
+mounts/data/**/*
 !**/.gitkeep
 !**/.gitignore
