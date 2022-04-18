@@ -10,9 +10,13 @@ import (
 	"github.com/ZyrnDev/letsgohabits/server"
 )
 
-func main() {
+func CopyGeneratedProtoFilesToMount() {
 	cmd := exec.Command("cp", "--recursive", "proto/", "generated_proto/")
 	cmd.Run()
+}
+
+func main() {
+	go CopyGeneratedProtoFilesToMount()
 
 	conf := config.New()
 	log.Printf("Loaded Config: %+v", conf)

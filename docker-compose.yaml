@@ -2,14 +2,14 @@ version: "3.9"
 services:
   app:
     build: .
+    ports:
+      - "8080:80"
     volumes:
       - ./mounts/proto:/usr/src/app/generated_proto
       - ./mounts/data:/usr/src/app/data
     depends_on:
       - nats-server
       
-  #   ports:
-  #     - "8000:5000"
   #   volumes:
   #     - .:/code
   #     - logvolume01:/var/log

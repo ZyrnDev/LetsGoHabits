@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/database"
+	"github.com/ZyrnDev/letsgohabits/grpc"
 	"github.com/ZyrnDev/letsgohabits/nats"
 	"github.com/ZyrnDev/letsgohabits/proto"
 	"github.com/go-co-op/gocron"
+	googleGrpc "google.golang.org/grpc"
 	protobuf "google.golang.org/protobuf/proto"
 )
 
@@ -59,6 +62,8 @@ func New(natsConnStr string, db database.Database, shutdownRequested chan bool) 
 			// nc.Publish("print", []byte(fmt.Sprintf("The time is: %s", time.Now())))
 		})
 
+		go test()
+
 		scheduler.StartAsync()
 
 		<-shutdownRequested
@@ -66,4 +71,17 @@ func New(natsConnStr string, db database.Database, shutdownRequested chan bool) 
 	}()
 
 	return done
+}
+
+func test() {
+	lis, err := net.Listen("tcp", ":80")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	var opts []googleGrpc.ServerOption
+	grpcServer := googleGrpc.NewServer(opts...)
+	proto.RegisterToolsServer(grpcServer, &grpc.ToolsServer{})
+	grpcServer.Serve(lis)
+
 }
