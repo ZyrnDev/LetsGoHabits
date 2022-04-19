@@ -7,13 +7,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	DatabaseConnectionString string `mapstructure:"database_connection_string"`
-	NatsConnectionString     string `mapstructure:"nats_connection_string"`
-}
+func New[ConfigType any](args ...string) (ConfigType, error) {
+	configFile := "config"
+	if len(args) > 0 && args[0] != "" {
+		configFile = args[0]
+	}
 
-func New() Config {
-	viper.SetConfigName("config")
+	viper.SetConfigName(configFile)
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 
@@ -22,17 +22,17 @@ func New() Config {
 		viper.AddConfigPath(dir)
 	}
 
-	var conf Config
+	var conf ConfigType
 	err = viper.ReadInConfig()
 	if err != nil {
-		panic(err)
+		return conf, err
 	}
 	err = viper.Unmarshal(&conf)
 	if err != nil {
-		panic(err)
+		return conf, err
 	}
 
-	return conf
+	return conf, nil
 }
 
 func GetLaunchDir() (string, error) {

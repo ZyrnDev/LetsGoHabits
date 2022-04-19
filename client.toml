@@ -1,0 +1,2 @@
+[nats]
+connection_string = "nats://nats-server:4222"
