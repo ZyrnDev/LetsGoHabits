@@ -1,8 +1,9 @@
-package client
+package handler
 
 import (
 	"github.com/ZyrnDev/letsgohabits/config"
 	"github.com/ZyrnDev/letsgohabits/nats"
+	"github.com/ZyrnDev/letsgohabits/util"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,14 +31,16 @@ type ClientConfig struct {
 }
 
 func New(args ...string) {
-	conf, err := config.New[ClientConfig]("client.toml")
+	shutdownRequests := util.SetupShutdown()
+
+	conf, err := config.New[ClientConfig]("handler.toml")
 	if err != nil {
 		log.Fatal().Msgf("Failed to load config: %s", err)
 	} else {
 		log.Info().Msgf("Loaded Config: %+v", conf)
 	}
 
-	log.Info().Msgf("Starting client %+v", args)
+	log.Info().Strs("args", args).Msg("Starting client")
 
 	nc, err := nats.Connect(conf.NatsConfig.ConnectionString)
 	if err != nil {
@@ -50,6 +53,8 @@ func New(args ...string) {
 	nc.Subscribe("print", func(msg nats.NatsMsg) {
 		log.Info().Msgf("Received message: %s", msg.Data)
 	})
+
+	<-shutdownRequests
 }
 
 // func New(natsConnStr string, db database.Database, shutdownRequested chan bool) chan bool {

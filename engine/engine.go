@@ -1,12 +1,18 @@
-package server
+package engine
 
 import (
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/config"
+	"github.com/ZyrnDev/letsgohabits/database"
+	"github.com/ZyrnDev/letsgohabits/grpc"
 	"github.com/ZyrnDev/letsgohabits/nats"
+	"github.com/ZyrnDev/letsgohabits/proto"
 	"github.com/go-co-op/gocron"
 	"github.com/rs/zerolog/log"
+	googleGrpc "google.golang.org/grpc"
 )
 
 type DatabaseConfig struct {
@@ -22,33 +28,67 @@ type ServerConfig struct {
 	NatsConfig     `mapstructure:"nats"`
 }
 
-func New(args ...string) {
-	conf, err := config.New[ServerConfig]("server.toml")
+type Engine struct {
+	natsConneciton *nats.Connection
+	database       database.Database
+	scheduler      *gocron.Scheduler
+	grpc           *googleGrpc.Server
+	grpcListener   net.Listener
+}
+
+func New(args ...string) (*Engine, error) {
+	var engine Engine
+
+	log.Info().Strs("args", args).Msg("Starting Engine")
+
+	conf, err := config.New[ServerConfig]("engine.toml")
 	if err != nil {
-		log.Fatal().Msgf("Failed to load config: %s", err)
+		return nil, fmt.Errorf("Failed to load config: %s", err)
 	} else {
 		log.Info().Msgf("Loaded Config: %+v", conf)
 	}
 
-	// db := database.New(conf.DatabaseConnectionString, &database.Config{
-	// 	// Logger: logger.Default.LogMode(logger.Info), // Verbose Logging
-	// })
-
-	log.Info().Msgf("Starting server %+v", args)
-
-	nc, err := nats.Connect(conf.NatsConfig.ConnectionString)
+	engine.database, err = database.New(conf.DatabaseConfig.ConnectionString, &database.Config{
+		// Logger: logger.Default.LogMode(logger.Info), // Verbose Logging
+	})
 	if err != nil {
-		log.Fatal().Msgf("Failed to connect to nats: %s", err)
+		return nil, fmt.Errorf("Failed to connect to database: %s", err)
+	}
+
+	engine.natsConneciton, err = nats.Connect(conf.NatsConfig.ConnectionString)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to nats: %s", err)
 	}
 	// defer nc.Close() // TODO: This is causing issue as it closes too early
 
 	log.Info().Msgf("Connected to nats: %s", conf.NatsConfig.ConnectionString)
 
-	scheduler := gocron.NewScheduler(time.Local)
-	scheduler.Every(1).Second().Do(func() {
-		nc.Publish("print", []byte("Hello World"))
+	engine.grpcListener, err = net.Listen("tcp", ":80")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open tcp listener: %v", err)
+	}
+
+	var opts []googleGrpc.ServerOption
+	engine.grpc = googleGrpc.NewServer(opts...)
+	proto.RegisterToolsServer(engine.grpc, &grpc.ToolsServer{})
+
+	engine.scheduler = gocron.NewScheduler(time.Local)
+	go engine.Start()
+
+	return &engine, nil
+}
+
+func (engine *Engine) Start() {
+	engine.scheduler.Every(1).Second().Do(func() {
+		engine.natsConneciton.Publish("print", []byte("Hello World"))
 	})
-	scheduler.StartAsync()
+	engine.scheduler.StartAsync()
+
+	engine.grpc.Serve(engine.grpcListener)
+}
+
+func (engine *Engine) Close() {
+	engine.natsConneciton.Close()
 }
 
 // func New(natsConnStr string, db database.Database, shutdownRequested chan bool) chan bool {
@@ -111,7 +151,7 @@ func New(args ...string) {
 // func test() {
 // 	lis, err := net.Listen("tcp", ":80")
 // 	if err != nil {
-// 		log.Fatalf("failed to listen: %v", err)
+// 		log.Fatal().Msgf("failed to listen: %v", err)
 // 	}
 
 // 	var opts []googleGrpc.ServerOption

@@ -1,22 +1,43 @@
 version: "3.9"
 services:
-  app:
-    build: .
-    ports:
-      - "8080:80"
+
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: ./cmd/engine
     volumes:
-      - ./mounts/proto:/usr/src/app/generated_proto
-      - ./mounts/data:/usr/src/app/data
+    - ./mounts/data:/usr/src/app/data
     depends_on:
       - nats-server
-      
-  #   volumes:
-  #     - .:/code
-  #     - logvolume01:/var/log
-  #   links:
-  #     - redis
+
+  handler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: ./cmd/handler
+    depends_on:
+      - engine
+      - nats-server
+
   nats-server:
     image: nats
     ports:
       - "4222:4222"
       - "8222:8222"
+    logging:
+      driver: none # disable logging
+
+  build_proto:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    # ports:
+    #   - "8080:80"
+    volumes:
+      - ./mounts/proto:/usr/src/app/generated_proto
+      # - ./mounts/data:/usr/src/app/data
+    # depends_on:
+    #   - nats-server

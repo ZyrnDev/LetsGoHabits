@@ -22,13 +22,13 @@ type Habit struct {
 	// Events []Event
 }
 
-func New(connectionString string, conf *Config) Database {
+func New(connectionString string, conf *Config) (Database, error) {
 	db, err := gorm.Open(sqlite.Open(connectionString), conf)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	db.AutoMigrate(&User{}, &Habit{})
 
-	return db
+	return db, nil
 }
