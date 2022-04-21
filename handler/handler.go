@@ -1,10 +1,17 @@
 package handler
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"github.com/ZyrnDev/letsgohabits/config"
+	"github.com/ZyrnDev/letsgohabits/mounts/proto/proto"
 	"github.com/ZyrnDev/letsgohabits/nats"
-	"github.com/ZyrnDev/letsgohabits/util"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // "context"
@@ -30,31 +37,60 @@ type ClientConfig struct {
 	NatsConfig `mapstructure:"nats"`
 }
 
-func New(args ...string) {
-	shutdownRequests := util.SetupShutdown()
+type Handler struct {
+	natsConnection *nats.Connection
+	grpcConnection *grpc.ClientConn
+	grpcClient     proto.ToolsClient
+}
+
+func New(args ...string) (*Handler, error) {
+	var handler Handler
 
 	conf, err := config.New[ClientConfig]("handler.toml")
 	if err != nil {
-		log.Fatal().Msgf("Failed to load config: %s", err)
+		return nil, fmt.Errorf("Failed to load config: %s", err)
 	} else {
 		log.Info().Msgf("Loaded Config: %+v", conf)
 	}
 
 	log.Info().Strs("args", args).Msg("Starting client")
 
-	nc, err := nats.Connect(conf.NatsConfig.ConnectionString)
+	handler.natsConnection, err = nats.Connect(conf.NatsConfig.ConnectionString)
 	if err != nil {
 		log.Fatal().Msgf("Failed to connect to nats: %s", err)
 	}
-	// defer nc.Close() // TODO: This is causing issue as it closes too early
 
 	log.Info().Msgf("Connected to nats: %s", conf.NatsConfig.ConnectionString)
 
-	nc.Subscribe("print", func(msg nats.NatsMsg) {
-		log.Info().Msgf("Received message: %s", msg.Data)
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	time.Sleep(time.Second * 1)
+
+	handler.grpcConnection, err = grpc.Dial("engine:9090", opts...)
+	if err != nil {
+		log.Fatal().Msgf("fail to dial: %v", err)
+	}
+	handler.grpcClient = proto.NewToolsClient(handler.grpcConnection)
+
+	handler.natsConnection.Subscribe("print", func(msg nats.NatsMsg) {
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		pingTime, err := handler.grpcClient.Ping(ctx, &empty.Empty{})
+		if err != nil {
+			log.Info().Err(err).Msgf("Received message '%s' at an unknown time.", msg.Data)
+		} else {
+			log.Info().Msgf("Received message '%s' at %v", msg.Data, pingTime.AsTime())
+		}
+		defer cancel()
 	})
 
-	<-shutdownRequests
+	return &handler, nil
+}
+
+func (handler *Handler) Close() {
+	handler.natsConnection.Close()
+	handler.grpcConnection.Close()
 }
 
 // func New(natsConnStr string, db database.Database, shutdownRequested chan bool) chan bool {

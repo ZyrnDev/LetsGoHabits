@@ -1,7 +1,20 @@
 package main
 
-import "github.com/ZyrnDev/letsgohabits/handler"
+import (
+	"time"
+
+	"github.com/ZyrnDev/letsgohabits/handler"
+	"github.com/ZyrnDev/letsgohabits/util"
+)
 
 func main() {
-	handler.New()
+	shutdownRequests := util.SetupShutdown(util.ShutdownTimeouts{KillTimeout: time.Second * 1})
+
+	h, err := handler.New()
+	if err != nil {
+		panic(err)
+	}
+
+	<-shutdownRequests
+	h.Close()
 }

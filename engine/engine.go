@@ -63,7 +63,7 @@ func New(args ...string) (*Engine, error) {
 
 	log.Info().Msgf("Connected to nats: %s", conf.NatsConfig.ConnectionString)
 
-	engine.grpcListener, err = net.Listen("tcp", ":80")
+	engine.grpcListener, err = net.Listen("tcp", ":9090")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open tcp listener: %v", err)
 	}

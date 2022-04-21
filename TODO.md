@@ -8,3 +8,5 @@
  - Improve README.md
  - Look at Git Tags
  - data modelling
+ - how will client & server handler communicate (gRPC web?)
+ - update envoy
