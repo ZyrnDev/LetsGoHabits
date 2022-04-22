@@ -18,6 +18,8 @@ services:
       dockerfile: Dockerfile
       args:
         APP_DIR: ./cmd/handler
+    ports:
+      - "80:80"
     depends_on:
       - engine
       - nats-server
@@ -30,14 +32,14 @@ services:
     logging:
       driver: none # disable logging
 
-  envoy:
-    build:
-      context: .
-      dockerfile: envoy.Dockerfile
-    ports:
-      - "8080:8080"
-    depends_on:
-      - engine
+  # envoy:
+  #   build:
+  #     context: .
+  #     dockerfile: envoy.Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - engine
 
   build_proto:
     build: 

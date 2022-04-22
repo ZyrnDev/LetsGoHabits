@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/config"
@@ -85,7 +86,30 @@ func New(args ...string) (*Handler, error) {
 		defer cancel()
 	})
 
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+			log.Printf("Received request: %s", req.URL.Path)
+			t, err := (&handler).Ping()
+			if err != nil {
+				fmt.Fprintf(w, "<h1>Hello World</h1><p>Error Ping Failed: %v</p>", err)
+			} else {
+				fmt.Fprintf(w, "<h1>Hello World</h1><p>Ping Successful: %v</p>", t)
+			}
+		})
+		http.ListenAndServe(":80", nil)
+	}()
+
 	return &handler, nil
+}
+
+func (handler *Handler) Ping() (time.Time, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	pingTime, err := handler.grpcClient.Ping(ctx, &empty.Empty{})
+	if err != nil {
+		return time.Time{}, err
+	}
+	return pingTime.AsTime(), nil
 }
 
 func (handler *Handler) Close() {
@@ -158,9 +182,4 @@ func (handler *Handler) Close() {
 // 		log.Printf("ping time: %v", pingTime.AsTime())
 // 	}
 // 	defer cancel()
-// }
-
-// func handler(w http.ResponseWriter, req *http.Request) {
-// 	log.Printf("Received request: %s", req.URL.Path)
-// 	fmt.Fprintf(w, "<h1>Hello World</h1><p>This is a test</p>")
 // }
