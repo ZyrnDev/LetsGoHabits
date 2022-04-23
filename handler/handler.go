@@ -3,12 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/config"
 	"github.com/ZyrnDev/letsgohabits/mounts/proto/proto"
 	"github.com/ZyrnDev/letsgohabits/nats"
+	"github.com/gin-gonic/gin"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -74,29 +74,35 @@ func New(args ...string) (*Handler, error) {
 	}
 	handler.grpcClient = proto.NewToolsClient(handler.grpcConnection)
 
-	handler.natsConnection.Subscribe("print", func(msg nats.NatsMsg) {
+	// handler.natsConnection.Subscribe("print", func(msg nats.NatsMsg) {
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		pingTime, err := handler.grpcClient.Ping(ctx, &empty.Empty{})
-		if err != nil {
-			log.Info().Err(err).Msgf("Received message '%s' at an unknown time.", msg.Data)
-		} else {
-			log.Info().Msgf("Received message '%s' at %v", msg.Data, pingTime.AsTime())
-		}
-		defer cancel()
-	})
+	// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// 	pingTime, err := handler.grpcClient.Ping(ctx, &empty.Empty{})
+	// 	if err != nil {
+	// 		log.Info().Err(err).Msgf("Received message '%s' at an unknown time.", msg.Data)
+	// 	} else {
+	// 		log.Info().Msgf("Received message '%s' at %v", msg.Data, pingTime.AsTime())
+	// 	}
+	// 	defer cancel()
+	// })
 
 	go func() {
-		http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-			log.Printf("Received request: %s", req.URL.Path)
-			t, err := (&handler).Ping()
+		r := gin.Default()
+		r.Use(CORSMiddleware())
+		r.GET("/ping", func(c *gin.Context) {
+			pingTime, err := handler.Ping()
 			if err != nil {
-				fmt.Fprintf(w, "<h1>Hello World</h1><p>Error Ping Failed: %v</p>", err)
+				c.JSON(500, gin.H{
+					"message": err.Error(),
+				})
 			} else {
-				fmt.Fprintf(w, "<h1>Hello World</h1><p>Ping Successful: %v</p>", t)
+				c.JSON(200, gin.H{
+					"message": "pong",
+					"time":    pingTime.Format(time.RFC3339),
+				})
 			}
 		})
-		http.ListenAndServe(":80", nil)
+		r.Run(":8080") // listen and serve on 0.0.0.0:8080
 	}()
 
 	return &handler, nil
@@ -115,6 +121,22 @@ func (handler *Handler) Ping() (time.Time, error) {
 func (handler *Handler) Close() {
 	handler.natsConnection.Close()
 	handler.grpcConnection.Close()
+}
+
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // func New(natsConnStr string, db database.Database, shutdownRequested chan bool) chan bool {
