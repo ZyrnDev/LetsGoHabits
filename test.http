@@ -1,0 +1,7 @@
+POST http://localhost:8080/users/new HTTP/1.1
+content-type: application/json
+
+{
+    "id": 432409,
+    "nickname": "new user 101"
+}

@@ -71,6 +71,7 @@ func New(args ...string) (*Engine, error) {
 	var opts []googleGrpc.ServerOption
 	engine.grpc = googleGrpc.NewServer(opts...)
 	proto.RegisterToolsServer(engine.grpc, &grpc.ToolsServer{})
+	proto.RegisterUsersServer(engine.grpc, &grpc.UsersServer{Database: engine.database})
 
 	engine.scheduler = gocron.NewScheduler(time.Local)
 	go engine.Start()

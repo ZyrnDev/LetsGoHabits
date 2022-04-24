@@ -41,7 +41,8 @@ type ClientConfig struct {
 type Handler struct {
 	natsConnection *nats.Connection
 	grpcConnection *grpc.ClientConn
-	grpcClient     proto.ToolsClient
+	toolsGRPC      proto.ToolsClient
+	usersGRPC      proto.UsersClient
 }
 
 func New(args ...string) (*Handler, error) {
@@ -72,7 +73,8 @@ func New(args ...string) (*Handler, error) {
 	if err != nil {
 		log.Fatal().Msgf("fail to dial: %v", err)
 	}
-	handler.grpcClient = proto.NewToolsClient(handler.grpcConnection)
+	handler.toolsGRPC = proto.NewToolsClient(handler.grpcConnection)
+	handler.usersGRPC = proto.NewUsersClient(handler.grpcConnection)
 
 	// handler.natsConnection.Subscribe("print", func(msg nats.NatsMsg) {
 
@@ -90,7 +92,7 @@ func New(args ...string) (*Handler, error) {
 		r := gin.Default()
 		r.Use(CORSMiddleware())
 		r.GET("/ping", func(c *gin.Context) {
-			pingTime, err := handler.Ping()
+			pingTime, err := handler.ToolsPing()
 			if err != nil {
 				c.JSON(500, gin.H{
 					"message": err.Error(),
@@ -102,20 +104,56 @@ func New(args ...string) (*Handler, error) {
 				})
 			}
 		})
+		r.POST("/users/new", func(c *gin.Context) {
+			type User struct {
+				Id       uint   `form:"id" json:"id"`
+				Nickname string `form:"nickname" json:"nickname" binding:"required"`
+			}
+
+			var input User
+			if err := c.BindJSON(&input); err == nil {
+				user, err := handler.UsersNew(&proto.User{
+					Id:   uint64(input.Id),
+					Name: input.Nickname,
+				})
+
+				if err != nil {
+					c.JSON(500, gin.H{
+						"message": err.Error(),
+					})
+				} else {
+					c.JSON(200, gin.H{
+						"message": "pong",
+						"user":    user,
+					})
+				}
+			} else {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("%+v", err),
+				})
+			}
+		})
 		r.Run(":8080") // listen and serve on 0.0.0.0:8080
 	}()
 
 	return &handler, nil
 }
 
-func (handler *Handler) Ping() (time.Time, error) {
+func (handler *Handler) ToolsPing() (time.Time, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	pingTime, err := handler.grpcClient.Ping(ctx, &empty.Empty{})
+	pingTime, err := handler.toolsGRPC.Ping(ctx, &empty.Empty{})
 	if err != nil {
 		return time.Time{}, err
 	}
 	return pingTime.AsTime(), nil
+}
+
+func (handler *Handler) UsersNew(user *proto.User) (*proto.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	user, err := handler.usersGRPC.New(ctx, user)
+	return user, err
 }
 
 func (handler *Handler) Close() {

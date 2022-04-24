@@ -1,0 +1,12 @@
+// syntax = "proto3";
+
+// import public "google/protobuf/timestamp.proto";
+// // import public "google/protobuf/empty.proto";
+
+// option go_package = "./../proto";
+
+
+
+// service Habits {
+//     // rpc Ping(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+// }

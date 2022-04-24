@@ -10,15 +10,15 @@ type Config = gorm.Config
 
 type User struct {
 	gorm.Model
-	Nickname string
+	Nickname string  `gorm:"unique;index"`
+	Habits   []Habit `gorm:"foreignKey:AuthorId"`
 }
 
 type Habit struct {
 	gorm.Model
 	Name        string
 	Description string
-	AuthorID    uint
-	Author      User
+	AuthorId    uint
 	// Events []Event
 }
 

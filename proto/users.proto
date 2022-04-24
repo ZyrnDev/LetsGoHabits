@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "./../proto";
+
+message User {
+    fixed64 id = 1;
+    string name = 2;
+    
+    google.protobuf.Timestamp created_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    google.protobuf.Timestamp deleted_at = 5;
+}
+
+message UpdateUserRequest {
+    fixed64 userId = 1;
+    User user = 2;
+}
+
+service Users {
+    // rpc Ping(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+    rpc New(User) returns (User);
+    rpc Delete(User) returns (google.protobuf.Empty);
+    rpc Get(User) returns (User);
+    rpc Update(UpdateUserRequest) returns (User);
+}
