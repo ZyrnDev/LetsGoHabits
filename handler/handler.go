@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/config"
-	"github.com/ZyrnDev/letsgohabits/mounts/proto/proto"
 	"github.com/ZyrnDev/letsgohabits/nats"
+	"github.com/ZyrnDev/letsgohabits/proto"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog/log"

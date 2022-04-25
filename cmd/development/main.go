@@ -5,7 +5,7 @@ import (
 )
 
 func CopyGeneratedProtoFilesToMount() {
-	cmd := exec.Command("cp", "--recursive", "proto/", "generated_proto/")
+	cmd := exec.Command("cp", "--recursive", "proto/.", "generated_proto")
 	cmd.Run()
 }
 
