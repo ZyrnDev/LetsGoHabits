@@ -106,14 +106,12 @@ func New(args ...string) (*Handler, error) {
 		})
 		r.POST("/users/new", func(c *gin.Context) {
 			type User struct {
-				Id       uint   `form:"id" json:"id"`
 				Nickname string `form:"nickname" json:"nickname" binding:"required"`
 			}
 
 			var input User
 			if err := c.BindJSON(&input); err == nil {
 				user, err := handler.UsersNew(&proto.User{
-					Id:   uint64(input.Id),
 					Name: input.Nickname,
 				})
 
