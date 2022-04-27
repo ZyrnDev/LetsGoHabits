@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type UsersServer struct {
@@ -34,7 +35,18 @@ func (s *UsersServer) New(ctx context.Context, in *proto.User) (*proto.User, err
 }
 
 func (s *UsersServer) Delete(ctx context.Context, in *proto.User) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+	user := &database.User{
+		Model: gorm.Model{
+			ID: uint(in.Id),
+		},
+	}
+
+	result := s.Database.Unscoped().Delete(&user)
+	if result.Error != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete user: %s", result.Error)
+	}
+
+	return &empty.Empty{}, nil
 }
 
 func (s *UsersServer) Get(ctx context.Context, in *proto.User) (*proto.User, error) {

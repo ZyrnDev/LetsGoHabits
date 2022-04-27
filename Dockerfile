@@ -11,8 +11,8 @@ RUN go mod verify
 RUN go mod tidy
 
 # # Super slow to build, so we cache the result
-# RUN go get "gorm.io/driver/sqlite"
-# RUN go get "gorm.io/gorm"
+RUN go get "gorm.io/driver/sqlite" && go install "gorm.io/driver/sqlite"
+RUN go get "gorm.io/gorm" && go install "gorm.io/gorm"
 
 COPY . .
 RUN protoc -I=proto --go_out=proto --go_opt=paths=source_relative --go-grpc_out=proto --go-grpc_opt=paths=source_relative proto/*.proto 

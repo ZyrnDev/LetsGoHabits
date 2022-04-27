@@ -1,8 +1,11 @@
 package database
 
 import (
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"github.com/ZyrnDev/letsgohabits/proto"
 )
 
 type Database = *gorm.DB
@@ -31,4 +34,14 @@ func New(connectionString string, conf *Config) (Database, error) {
 	db.AutoMigrate(&User{}, &Habit{})
 
 	return db, nil
+}
+
+func (user *User) ToProtobuf() *proto.User {
+	return &proto.User{
+		Id:        uint64(user.ID),
+		Name:      user.Nickname,
+		CreatedAt: timestamppb.New(user.CreatedAt),
+		UpdatedAt: timestamppb.New(user.UpdatedAt),
+		// DeletedAt: timestamppb.New(user.DeletedAt),
+	}
 }

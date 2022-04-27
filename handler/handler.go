@@ -131,6 +131,33 @@ func New(args ...string) (*Handler, error) {
 				})
 			}
 		})
+		r.POST("/users/delete", func(c *gin.Context) {
+			type User struct {
+				Id int64 `form:"id" json:"id" binding:"required"`
+			}
+
+			var input User
+			if err := c.BindJSON(&input); err == nil {
+				user, err := handler.UsersDelete(&proto.User{
+					Id: uint64(input.Id),
+				})
+
+				if err != nil {
+					c.JSON(500, gin.H{
+						"message": err.Error(),
+					})
+				} else {
+					c.JSON(200, gin.H{
+						"message": "pong",
+						"user":    user,
+					})
+				}
+			} else {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("%+v", err),
+				})
+			}
+		})
 		r.Run(":8080") // listen and serve on 0.0.0.0:8080
 	}()
 
@@ -152,6 +179,13 @@ func (handler *Handler) UsersNew(user *proto.User) (*proto.User, error) {
 	defer cancel()
 	user, err := handler.usersGRPC.New(ctx, user)
 	return user, err
+}
+
+func (handler *Handler) UsersDelete(user *proto.User) (*empty.Empty, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	empty_, err := handler.usersGRPC.Delete(ctx, user)
+	return empty_, err
 }
 
 func (handler *Handler) Close() {
