@@ -11,18 +11,16 @@ message User {
     
     google.protobuf.Timestamp created_at = 3;
     google.protobuf.Timestamp updated_at = 4;
-    google.protobuf.Timestamp deleted_at = 5;
+    // google.protobuf.Timestamp deleted_at = 5;
 }
 
-message UpdateUserRequest {
-    fixed64 userId = 1;
-    User user = 2;
+message ListUsers {
+    repeated User users = 1;
 }
 
 service Users {
-    // rpc Ping(google.protobuf.Empty) returns (google.protobuf.Timestamp);
     rpc New(User) returns (User);
     rpc Delete(User) returns (google.protobuf.Empty);
-    rpc Get(User) returns (User);
-    rpc Update(UpdateUserRequest) returns (User);
+    rpc Get(User) returns (ListUsers);
+    rpc Update(User) returns (User);
 }

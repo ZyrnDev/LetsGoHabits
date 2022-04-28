@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ZyrnDev/letsgohabits/config"
+	"github.com/ZyrnDev/letsgohabits/database"
 	"github.com/ZyrnDev/letsgohabits/nats"
 	"github.com/ZyrnDev/letsgohabits/proto"
 	"github.com/gin-gonic/gin"
@@ -15,11 +16,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// "context"
-// "fmt"
-// "log"
-// "net/http"
-// "time"
+const (
+	GRPC_TIMEOUT = 10 * time.Second
+)
 
 // "github.com/ZyrnDev/letsgohabits/database"
 // "github.com/ZyrnDev/letsgohabits/nats"
@@ -43,6 +42,7 @@ type Handler struct {
 	grpcConnection *grpc.ClientConn
 	toolsGRPC      proto.ToolsClient
 	usersGRPC      proto.UsersClient
+	habitsGRPC     proto.HabitsClient
 }
 
 func New(args ...string) (*Handler, error) {
@@ -75,6 +75,9 @@ func New(args ...string) (*Handler, error) {
 	}
 	handler.toolsGRPC = proto.NewToolsClient(handler.grpcConnection)
 	handler.usersGRPC = proto.NewUsersClient(handler.grpcConnection)
+	handler.habitsGRPC = proto.NewHabitsClient(handler.grpcConnection)
+
+	go handler.SetupGin()
 
 	// handler.natsConnection.Subscribe("print", func(msg nats.NatsMsg) {
 
@@ -88,84 +91,11 @@ func New(args ...string) (*Handler, error) {
 	// 	defer cancel()
 	// })
 
-	go func() {
-		r := gin.Default()
-		r.Use(CORSMiddleware())
-		r.GET("/ping", func(c *gin.Context) {
-			pingTime, err := handler.ToolsPing()
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": err.Error(),
-				})
-			} else {
-				c.JSON(200, gin.H{
-					"message": "pong",
-					"time":    pingTime.Format(time.RFC3339),
-				})
-			}
-		})
-		r.POST("/users/new", func(c *gin.Context) {
-			type User struct {
-				Nickname string `form:"nickname" json:"nickname" binding:"required"`
-			}
-
-			var input User
-			if err := c.BindJSON(&input); err == nil {
-				user, err := handler.UsersNew(&proto.User{
-					Name: input.Nickname,
-				})
-
-				if err != nil {
-					c.JSON(500, gin.H{
-						"message": err.Error(),
-					})
-				} else {
-					c.JSON(200, gin.H{
-						"message": "pong",
-						"user":    user,
-					})
-				}
-			} else {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("%+v", err),
-				})
-			}
-		})
-		r.POST("/users/delete", func(c *gin.Context) {
-			type User struct {
-				Id int64 `form:"id" json:"id" binding:"required"`
-			}
-
-			var input User
-			if err := c.BindJSON(&input); err == nil {
-				user, err := handler.UsersDelete(&proto.User{
-					Id: uint64(input.Id),
-				})
-
-				if err != nil {
-					c.JSON(500, gin.H{
-						"message": err.Error(),
-					})
-				} else {
-					c.JSON(200, gin.H{
-						"message": "pong",
-						"user":    user,
-					})
-				}
-			} else {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("%+v", err),
-				})
-			}
-		})
-		r.Run(":8080") // listen and serve on 0.0.0.0:8080
-	}()
-
 	return &handler, nil
 }
 
 func (handler *Handler) ToolsPing() (time.Time, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
 	defer cancel()
 	pingTime, err := handler.toolsGRPC.Ping(ctx, &empty.Empty{})
 	if err != nil {
@@ -174,18 +104,60 @@ func (handler *Handler) ToolsPing() (time.Time, error) {
 	return pingTime.AsTime(), nil
 }
 
+func (handler *Handler) UsersGet(user *proto.User) (*proto.ListUsers, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	users, err := handler.usersGRPC.Get(ctx, user)
+	return users, err
+}
+
 func (handler *Handler) UsersNew(user *proto.User) (*proto.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
 	defer cancel()
 	user, err := handler.usersGRPC.New(ctx, user)
 	return user, err
 }
 
 func (handler *Handler) UsersDelete(user *proto.User) (*empty.Empty, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
 	defer cancel()
 	empty_, err := handler.usersGRPC.Delete(ctx, user)
 	return empty_, err
+}
+
+func (handler *Handler) UserUpdate(user *proto.User) (*proto.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	user, err := handler.usersGRPC.Update(ctx, user)
+	return user, err
+}
+
+func (handler *Handler) HabitsGet(habit *proto.Habit) (*proto.ListHabits, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	habits, err := handler.habitsGRPC.Get(ctx, habit)
+	return habits, err
+}
+
+func (handler *Handler) HabitsNew(habit *proto.Habit) (*proto.Habit, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	habit, err := handler.habitsGRPC.New(ctx, habit)
+	return habit, err
+}
+
+func (handler *Handler) HabitsDelete(habit *proto.Habit) (*empty.Empty, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	empty_, err := handler.habitsGRPC.Delete(ctx, habit)
+	return empty_, err
+}
+
+func (handler *Handler) HabitUpdate(habit *proto.Habit) (*proto.Habit, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
+	defer cancel()
+	habit, err := handler.habitsGRPC.Update(ctx, habit)
+	return habit, err
 }
 
 func (handler *Handler) Close() {
@@ -209,69 +181,135 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// func New(natsConnStr string, db database.Database, shutdownRequested chan bool) chan bool {
-// 	done := make(chan bool)
+func (handler *Handler) GinPing(c *gin.Context) {
+	pingTime, err := handler.ToolsPing()
+	if err != nil {
+		c.JSON(500, gin.H{
+			"message": err.Error(),
+		})
+	} else {
+		c.JSON(200, gin.H{
+			"message": "pong",
+			"time":    pingTime.Format(time.RFC3339),
+		})
+	}
+}
 
-// 	go func() {
-// 		nc := nats.NatsConnection(natsConnStr)
-// 		defer nc.Close()
+func (handler *Handler) GinFindUsers(c *gin.Context) {
+	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
+		return handler.UsersGet(user.ToProtobuf())
+	})
+}
 
-// 		log.Printf("Client connected to %s", natsConnStr)
+func (handler *Handler) GinNewUser(c *gin.Context) {
+	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
+		if user.ID != 0 {
+			return nil, fmt.Errorf("user.ID must be not set or 0")
+		}
+		if user.Nickname == "" {
+			return nil, fmt.Errorf("user.Nickname must be set and not empty")
+		}
+		return handler.UsersNew(user.ToProtobuf())
+	})
+}
 
-// 		nc.Subscribe("print", func(msg nats.NatsMsg) {
-// 			log.Printf("Received: %s", string(msg.Data))
-// 		})
+func (handler *Handler) GinDeleteUser(c *gin.Context) {
+	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
+		if user.ID == 0 {
+			return nil, fmt.Errorf("user.ID must be set and not empty")
+		}
+		return handler.UsersDelete(user.ToProtobuf())
+	})
+}
 
-// 		nc.Subscribe("test", func(msg nats.NatsMsg) {
-// 			t := &proto.Test{}
-// 			err := protobuf.Unmarshal(msg.Data, t)
-// 			if err != nil {
-// 				panic(err)
-// 			}
+func (handler *Handler) GinUpdateUser(c *gin.Context) {
+	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
+		if user.ID == 0 {
+			return nil, fmt.Errorf("user.ID must be set and not empty")
+		}
+		return handler.UserUpdate(user.ToProtobuf())
+	})
+}
 
-// 			var habit database.Habit
-// 			res := db.Preload("Author").First(&habit, database.Habit{Model: gorm.Model{ID: uint(t.Id)}})
-// 			if res.Error != nil {
-// 				panic(res.Error)
-// 			}
+func (handler *Handler) GinFindHabits(c *gin.Context) {
+	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
+		return handler.HabitsGet(habit.ToProtobuf())
+	})
+}
 
-// 			log.Printf("%s just send a message (%s) to add a new habit '%s'", habit.Author.Nickname, t.Name, habit.Name)
-// 			// log.Printf("Info %+v", habit)
-// 		})
+func (handler *Handler) GinNewHabit(c *gin.Context) {
+	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
+		if habit.ID != 0 {
+			return nil, fmt.Errorf("habit.ID must be not set or 0")
+		}
+		if habit.Name == "" {
+			return nil, fmt.Errorf("habit.Name must be set and not empty")
+		}
+		return handler.HabitsNew(habit.ToProtobuf())
+	})
+}
 
-// 		// go func() {
-// 		// 	http.HandleFunc("/", handler)
-// 		// 	http.ListenAndServe(":80", nil)
-// 		// }()
+func (handler *Handler) GinDeleteHabit(c *gin.Context) {
+	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
+		if habit.ID == 0 {
+			return nil, fmt.Errorf("habit.ID must be set and not empty")
+		}
+		return handler.HabitsDelete(habit.ToProtobuf())
+	})
+}
 
-// 		go test()
+func (handler *Handler) GinUpdateHabit(c *gin.Context) {
+	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
+		if habit.ID == 0 {
+			return nil, fmt.Errorf("habit.ID must be set and not empty")
+		}
+		return handler.HabitUpdate(habit.ToProtobuf())
+	})
+}
 
-// 		<-shutdownRequested
-// 		done <- true
-// 	}()
+type GrpcExecutor[Input any] func(input *Input) (interface{}, error)
 
-// 	return done
-// }
+func GinGrpcCall[Input any](c *gin.Context, grpcOperation GrpcExecutor[Input]) {
+	var input Input
+	if err := c.BindJSON(&input); err == nil {
+		data, err := grpcOperation(&input)
 
-// func test() {
-// 	var opts []grpc.DialOption
-// 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			c.JSON(500, gin.H{
+				"message": err.Error(),
+			})
+		} else {
+			c.JSON(200, gin.H{
+				"message": "pong",
+				"data":    data,
+			})
+		}
+	} else {
+		c.JSON(500, gin.H{
+			"message": fmt.Sprintf("%+v", err),
+		})
+	}
+}
 
-// 	time.Sleep(time.Second * 1)
+func (handler *Handler) SetupGin() {
 
-// 	conn, err := grpc.Dial(":80", opts...)
-// 	if err != nil {
-// 		log.Fatalf("fail to dial: %v", err)
-// 	}
-// 	defer conn.Close()
+	r := gin.Default()
+	r.Use(CORSMiddleware())
 
-// 	client := proto.NewToolsClient(conn)
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	pingTime, err := client.Ping(ctx, &empty.Empty{})
-// 	if err != nil {
-// 		log.Printf("fail to ping: %v", err)
-// 	} else {
-// 		log.Printf("ping time: %v", pingTime.AsTime())
-// 	}
-// 	defer cancel()
-// }
+	// Ping Service
+	r.GET("/ping", handler.GinPing)
+
+	// Users Service
+	r.POST("/users/find", handler.GinFindUsers)
+	r.POST("/users/create", handler.GinNewUser)
+	r.POST("/users/delete", handler.GinDeleteUser)
+	r.POST("/users/update", handler.GinUpdateUser)
+
+	// Habits Service
+	r.POST("/habits/find", handler.GinFindHabits)
+	r.POST("/habits/create", handler.GinNewHabit)
+	r.POST("/habits/delete", handler.GinDeleteHabit)
+	r.POST("/habits/update", handler.GinUpdateHabit)
+
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080
+}

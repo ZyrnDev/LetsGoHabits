@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "./../proto";
+
+message Habit {
+    fixed64 id = 1;
+    string name = 2;
+    string description = 3;
+    fixed64 authorId = 4;
+    
+    google.protobuf.Timestamp created_at = 100;
+    google.protobuf.Timestamp updated_at = 101;
+    // google.protobuf.Timestamp deleted_at = 5;
+}
+
+message ListHabits {
+    repeated Habit habits = 1;
+}
+
+service Habits {
+    rpc New(Habit) returns (Habit);
+    rpc Delete(Habit) returns (google.protobuf.Empty);
+    rpc Get(Habit) returns (ListHabits);
+    rpc Update(Habit) returns (Habit);
+}

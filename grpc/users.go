@@ -9,7 +9,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gorm.io/gorm"
 )
 
 type UsersServer struct {
@@ -18,9 +17,8 @@ type UsersServer struct {
 }
 
 func (s *UsersServer) New(ctx context.Context, in *proto.User) (*proto.User, error) {
-	user := &database.User{
-		Nickname: in.Name,
-	}
+	var user database.User
+	user.FromProtobuf(in)
 
 	res := s.Database.Create(&user)
 
@@ -28,18 +26,12 @@ func (s *UsersServer) New(ctx context.Context, in *proto.User) (*proto.User, err
 		return nil, status.Errorf(codes.Internal, "failed to create user: %s", res.Error)
 	}
 
-	return &proto.User{
-		Id:   uint64(user.ID),
-		Name: user.Nickname,
-	}, nil
+	return user.ToProtobuf(), nil
 }
 
 func (s *UsersServer) Delete(ctx context.Context, in *proto.User) (*empty.Empty, error) {
-	user := &database.User{
-		Model: gorm.Model{
-			ID: uint(in.Id),
-		},
-	}
+	var user database.User
+	user.FromProtobuf(in)
 
 	result := s.Database.Unscoped().Delete(&user)
 	if result.Error != nil {
@@ -49,10 +41,44 @@ func (s *UsersServer) Delete(ctx context.Context, in *proto.User) (*empty.Empty,
 	return &empty.Empty{}, nil
 }
 
-func (s *UsersServer) Get(ctx context.Context, in *proto.User) (*proto.User, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+func (s *UsersServer) Get(ctx context.Context, in *proto.User) (*proto.ListUsers, error) {
+	var user database.User
+	user.FromProtobuf(in)
+
+	var users []database.User
+
+	res := s.Database.Find(&users, user)
+	if res.Error != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get user: %s", res.Error)
+	}
+
+	usersProto := make([]*proto.User, len(users))
+	for i, user := range users {
+		usersProto[i] = user.ToProtobuf()
+	}
+
+	return &proto.ListUsers{
+		Users: usersProto,
+	}, nil
+
 }
 
-func (s *UsersServer) Update(ctx context.Context, in *proto.UpdateUserRequest) (*proto.User, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+func (s *UsersServer) Update(ctx context.Context, in *proto.User) (*proto.User, error) {
+	var user database.User
+	user.FromProtobuf(in)
+
+	var updatedUser database.User
+	if res := s.Database.First(&updatedUser, user.ID); res.Error != nil {
+		return nil, status.Errorf(codes.Internal, "failed to find user to update: %s", res.Error)
+	}
+
+	if res := s.Database.Model(&updatedUser).Updates(user); res.Error != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update user: %s", res.Error)
+	}
+
+	if res := s.Database.First(&updatedUser, user.ID); res.Error != nil {
+		return nil, status.Errorf(codes.Internal, "failed to find user after update: %s", res.Error)
+	}
+
+	return updatedUser.ToProtobuf(), nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	shutdownRequests := util.SetupShutdown(util.ShutdownTimeouts{KillTimeout: time.Second * 1})
+	shutdownRequests := util.SetupShutdown(util.ShutdownTimeouts{KillTimeout: time.Second * 1, InterruptTimeout: time.Second * 1})
 
 	e, err := engine.New()
 	if err != nil {
