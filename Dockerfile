@@ -1,30 +1,68 @@
-FROM habits_go_base:latest
+# My Go Version
+ARG GO_VERSION=1.18.1
+ARG GO_OS=bullseye
+FROM golang:$GO_VERSION-$GO_OS as go
+
+ARG CGO_ENABLED
+ENV CGO_ENABLED=$CGO_ENABLED
+
+ARG GOOS
+ENV GOOS=$GOOS
+
+ARG GOARCH
+ENV GOARCH=$GOARCH
 
 WORKDIR /usr/src/app
+
+
+# Add protoc
+FROM go as golang_with_protoc
+RUN apt update && apt install protobuf-compiler -y
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+
+# Build Protobuf Specs
+FROM golang_with_protoc as build_proto
+COPY proto proto
+RUN protoc -I=proto --go_out=proto --go_opt=paths=source_relative --go-grpc_out=proto --go-grpc_opt=paths=source_relative proto/*.proto 
+
+
+# Build the binary executables
+FROM go as build
 
 # pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
 COPY go.mod ./
 COPY go.sum ./
 
 RUN go mod download
+RUN go install github.com/mattn/go-sqlite3
 RUN go mod verify
 RUN go mod tidy
 
-# # Super slow to build, so we cache the result
-RUN go get "gorm.io/driver/sqlite" && go install "gorm.io/driver/sqlite"
-RUN go get "gorm.io/gorm" && go install "gorm.io/gorm"
-
 COPY . .
-RUN protoc -I=proto --go_out=proto --go_opt=paths=source_relative --go-grpc_out=proto --go-grpc_opt=paths=source_relative proto/*.proto 
+COPY --from=build_proto /usr/src/app/proto proto
 
 RUN mkdir bin
-RUN go build -v -buildvcs=false -o bin/development  ./cmd/development
-RUN go build -v -buildvcs=false -o bin/engine       ./cmd/engine
-RUN go build -v -buildvcs=false -o bin/handler ./cmd/handler
-RUN cp bin/* /usr/local/bin/
 
-# Remove the transitive dependencies from build process
-ARG EXEC_APP_NAME
-ENV EXEC_APP_NAME=${EXEC_APP_NAME:-development}
+RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -v -buildvcs=false -o bin/engine  ./cmd/engine
+RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -v -buildvcs=false -o bin/handler ./cmd/handler
 
-CMD $EXEC_APP_NAME
+
+# Lightweight image for the runtime
+FROM scratch AS runtime
+
+WORKDIR /app/
+
+ENV PATH="/app/bin:$PATH" 
+
+ARG EXEC_APP_NAME=executable_target_not_set
+ENV EXEC_APP_NAME=$EXEC_APP_NAME
+
+
+COPY --from=build /usr/src/app/bin/$EXEC_APP_NAME bin/executable_target
+
+# Normally SIGTERM is sent to the container when the user presses Ctrl+C.
+STOPSIGNAL SIGKILL
+
+ENTRYPOINT ["executable_target"]

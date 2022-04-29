@@ -48,7 +48,7 @@ type Handler struct {
 func New(args ...string) (*Handler, error) {
 	var handler Handler
 
-	conf, err := config.New[ClientConfig]("handler.toml")
+	conf, err := config.New[ClientConfig]("config/handler.toml")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load config: %s", err)
 	} else {
