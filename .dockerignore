@@ -1,6 +1,11 @@
 # Docker files not required inside the images
 .dockerignore
 Dockerfile
+build.Dockerfile
+
+# Build Artifacts
+proto/*.*
+!proto/*.proto
 
 # Non-functional files
 README.md
