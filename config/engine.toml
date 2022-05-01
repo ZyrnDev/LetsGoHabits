@@ -1,5 +1,5 @@
 [database]
 connection_string = "data/test.db"
 
-[nats]
-connection_string = "nats://nats-server:4222"
+# [nats]
+# connection_string = "nats://nats-server:4222"

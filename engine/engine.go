@@ -28,6 +28,15 @@ type ServerConfig struct {
 	NatsConfig     `mapstructure:"nats"`
 }
 
+var defaultConfig ServerConfig = ServerConfig{
+	NatsConfig: NatsConfig{
+		ConnectionString: "nats://localhost:4222",
+	},
+	DatabaseConfig: DatabaseConfig{
+		ConnectionString: "temp.db",
+	},
+}
+
 type Engine struct {
 	natsConneciton *nats.Connection
 	database       database.Database
@@ -41,7 +50,8 @@ func New(args ...string) (*Engine, error) {
 
 	log.Info().Strs("args", args).Msg("Starting Engine")
 
-	conf, err := config.New[ServerConfig]("config/engine.toml")
+	conf, err := config.New[ServerConfig]("config/engine.toml", defaultConfig)
+
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load config: %s", err)
 	} else {

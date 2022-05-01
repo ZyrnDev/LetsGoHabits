@@ -45,8 +45,8 @@ COPY --from=build_proto /usr/src/app/proto proto
 
 RUN mkdir bin
 
-RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -v -buildvcs=false -o bin/engine  ./cmd/engine
-RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -v -buildvcs=false -o bin/handler ./cmd/handler
+RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -buildvcs=false -o bin/engine  ./cmd/engine
+RUN go build -tags osusergo,netgo -ldflags="-extldflags=-static" -buildvcs=false -o bin/handler ./cmd/handler
 
 
 # Lightweight image for the runtime
