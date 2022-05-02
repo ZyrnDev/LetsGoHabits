@@ -1,2 +1,2 @@
-[nats]
-connection_string = "nats://nats-server:4222"
+# [nats]
+# connection_string = "nats://nats-server:4222"

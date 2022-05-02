@@ -37,6 +37,12 @@ type ClientConfig struct {
 	NatsConfig `mapstructure:"nats"`
 }
 
+var defaultConfig ClientConfig = ClientConfig{
+	NatsConfig: NatsConfig{
+		ConnectionString: "nats://localhost:4222",
+	},
+}
+
 type Handler struct {
 	natsConnection *nats.Connection
 	grpcConnection *grpc.ClientConn
@@ -48,7 +54,7 @@ type Handler struct {
 func New(args ...string) (*Handler, error) {
 	var handler Handler
 
-	conf, err := config.New[ClientConfig]("config/handler.toml")
+	conf, err := config.New[ClientConfig](defaultConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load config: %s", err)
 	} else {

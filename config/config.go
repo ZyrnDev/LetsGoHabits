@@ -6,20 +6,23 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 // TODO(Mitch): Add contraint for ConfigType such that only structs are valid generic types
 func New[ConfigType any](args ...any) (*ConfigType, error) {
-	configFile := "config"
-
 	viper.SetEnvPrefix("habits")
-	// BindEnvConfig[ConfigType]()
+
+	pflag.String("config", "config", "Path to config file")
+	viper.BindEnv("config_file")
+	viper.SetDefault("config_file", "config")
+
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
 
 	for i, arg := range args {
 		switch argument := arg.(type) {
-		case string:
-			configFile = argument
 		case ConfigType:
 			SetDefaultConfig(&argument)
 		case *ConfigType:
@@ -29,7 +32,7 @@ func New[ConfigType any](args ...any) (*ConfigType, error) {
 		}
 	}
 
-	viper.SetConfigName(configFile)
+	viper.SetConfigName(viper.GetString("config_file"))
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 

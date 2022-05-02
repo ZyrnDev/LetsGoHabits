@@ -50,7 +50,7 @@ func New(args ...string) (*Engine, error) {
 
 	log.Info().Strs("args", args).Msg("Starting Engine")
 
-	conf, err := config.New[ServerConfig]("config/engine.toml", defaultConfig)
+	conf, err := config.New[ServerConfig](defaultConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load config: %s", err)
