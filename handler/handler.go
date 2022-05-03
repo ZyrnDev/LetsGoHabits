@@ -110,6 +110,7 @@ func (handler *Handler) ToolsPing() (time.Time, error) {
 	return pingTime.AsTime(), nil
 }
 
+// TODO(Mitch): Make this more generic using a wrapper function
 func (handler *Handler) UsersGet(user *proto.User) (*proto.ListUsers, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
 	defer cancel()
