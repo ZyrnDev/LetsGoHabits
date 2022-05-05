@@ -1,0 +1,11 @@
+POST http://localhost:8080/users/subscribe HTTP/1.1
+content-type: application/json
+
+{
+    "endpoint": "https://fcm.googleapis.com/fcm/send/c6S1wloNJQA:APA91bGKJ4ghukWNYbMigsEjsUkF4LP6HOpTLfd0fu1ozOGJNf24MyAKJELikhOhk0IRRXXOUs14Tm6AAuwCG1_rrQHpbt5BaEzUlpKorEFj9z_BXs1kSky42wyYuYYdXarV20Vpk6UH",
+    "expirationTime": null,
+    "keys": {
+        "p256dh": "BNftckAOl0vi1yRaE3hDGg61MxVfr6AOYRcHGGfGl-GfqAyRIt38T2h5PxD_MIT6VoMVr4Xj_LrOW94wIwEQFI4",
+        "auth": "h2RZ0LaZM3acvuSZ3kQ4SQ"
+    }
+}

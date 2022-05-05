@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/ZyrnDev/letsgohabits/config"
 	"github.com/ZyrnDev/letsgohabits/database"
 	"github.com/ZyrnDev/letsgohabits/nats"
@@ -298,6 +299,30 @@ func GinGrpcCall[Input any](c *gin.Context, grpcOperation GrpcExecutor[Input]) {
 	}
 }
 
+type Keys struct {
+	Auth   string `json:"auth" binding:"required"`
+	P256dh string `json:"p256dh" binding:"required"`
+}
+
+func (keys *Keys) ToWebpushKeys() webpush.Keys {
+	return webpush.Keys{
+		Auth:   keys.Auth,
+		P256dh: keys.P256dh,
+	}
+}
+
+type Subscription struct {
+	Endpoint string `json:"endpoint" binding:"required"`
+	Keys     Keys   `json:"keys" binding:"required"`
+}
+
+func (sub *Subscription) ToWebpushSubScription() webpush.Subscription {
+	return webpush.Subscription{
+		Endpoint: sub.Endpoint,
+		Keys:     sub.Keys.ToWebpushKeys(),
+	}
+}
+
 func (handler *Handler) SetupGin() {
 
 	r := gin.Default()
@@ -317,6 +342,38 @@ func (handler *Handler) SetupGin() {
 	r.POST("/habits/create", handler.GinNewHabit)
 	r.POST("/habits/delete", handler.GinDeleteHabit)
 	r.POST("/habits/update", handler.GinUpdateHabit)
+
+	r.POST("/users/subscribe", func(c *gin.Context) {
+		var input Subscription
+		if err := c.BindJSON(&input); err == nil {
+			sub := input.ToWebpushSubScription()
+
+			resp, err := webpush.SendNotification([]byte("Test"), &sub, &webpush.Options{
+				Subscriber:      "mitch@zyrn.dev",
+				VAPIDPublicKey:  "BH3wNAfqSwzLzduT_KsuE0PoIKRMooJQ_On_iv6uQfNWDc5CNXsH6GYErTQ-OrOTe3LO6H32fJV6eyINpsqHpDg",
+				VAPIDPrivateKey: "-DWpYb3--uc2Jo1QRpFAGnZigtBoSgItlwUtP3JN0f8",
+				TTL:             30,
+			})
+
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": err.Error(),
+				})
+			} else {
+				defer resp.Body.Close()
+				log.Debug().Msgf("%+v", resp)
+				c.JSON(200, gin.H{
+					"message": "subbed",
+				})
+			}
+		} else {
+			c.JSON(500, gin.H{
+				"message": fmt.Sprintf("%+v", err),
+			})
+		}
+
+	})
+	// r.POST("/users/unsubscribe", func(c *gin.Context) {})
 
 	r.Run(":8080") // listen and serve on 0.0.0.0:8080
 }

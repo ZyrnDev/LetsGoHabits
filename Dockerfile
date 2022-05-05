@@ -62,6 +62,9 @@ ENV EXEC_APP_NAME=$EXEC_APP_NAME
 
 COPY --from=build /usr/src/app/bin/$EXEC_APP_NAME bin/executable_target
 
+# Copy the Root CAs
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 # Normally SIGTERM is sent to the container when the user presses Ctrl+C.
 STOPSIGNAL SIGKILL
 
