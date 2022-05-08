@@ -7,6 +7,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/ZyrnDev/letsgohabits/proto"
 )
 
@@ -22,16 +23,31 @@ type Model struct {
 
 type User struct {
 	Model
-	Nickname string  `gorm:"unique;index" form:"nickname" json:"nickname"`
-	Habits   []Habit `gorm:"foreignKey:AuthorId"`
+	Nickname      string         `gorm:"unique;index" form:"nickname" json:"nickname"`
+	Habits        []Habit        `gorm:"foreignKey:AuthorId"`
+	Subscriptions []Subscription `gorm:"foreignKey:UserId"`
 }
 
 type Habit struct {
 	Model
-	Name        string `form:"name" json:"name"`
-	Description string `form:"description" json:"description"`
-	AuthorId    uint   `form:"authorId" json:"authorId"`
+	Name          string         `form:"name" json:"name"`
+	Description   string         `form:"description" json:"description"`
+	AuthorId      uint           `form:"authorId" json:"authorId"`
+	Subscriptions []Subscription `gorm:"foreignKey:HabitId"`
 	// Events []Event
+}
+
+type Subscription struct {
+	Model
+	UserId   uint   `form:"userId" json:"userId"`
+	HabitId  uint   `form:"habitId" json:"habitId"`
+	Endpoint string `form:"endpoint" json:"endpoint"`
+	Keys     `form:"keys" json:"keys"`
+}
+
+type Keys struct {
+	Auth   string `json:"auth"`
+	P256dh string `json:"p256dh"`
 }
 
 func New(connectionString string, conf *Config) (Database, error) {
@@ -81,4 +97,53 @@ func (habit *Habit) FromProtobuf(in *proto.Habit) {
 	habit.AuthorId = uint(in.AuthorId)
 	habit.CreatedAt = in.CreatedAt.AsTime()
 	habit.UpdatedAt = in.UpdatedAt.AsTime()
+}
+
+func (subscription *Subscription) ToProtobuf() *proto.Subscription {
+	return &proto.Subscription{
+		Id:        uint64(subscription.ID),
+		UserId:    uint64(subscription.UserId),
+		HabitId:   uint64(subscription.HabitId),
+		Endpoint:  subscription.Endpoint,
+		Keys:      subscription.Keys.ToProtobuf(),
+		CreatedAt: timestamppb.New(subscription.CreatedAt),
+		UpdatedAt: timestamppb.New(subscription.UpdatedAt),
+		// DeletedAt: timestamppb.New(subscription.DeletedAt),
+	}
+}
+
+func (subscription *Subscription) FromProtobuf(in *proto.Subscription) {
+	subscription.ID = uint(in.Id)
+	subscription.UserId = uint(in.UserId)
+	subscription.HabitId = uint(in.HabitId)
+	subscription.Endpoint = in.Endpoint
+	// subscription.Keys.FromProtobuf(in.Keys)
+	subscription.CreatedAt = in.CreatedAt.AsTime()
+	subscription.UpdatedAt = in.UpdatedAt.AsTime()
+}
+
+func (keys *Keys) ToProtobuf() *proto.Subscription_Keys {
+	return &proto.Subscription_Keys{
+		Auth:   keys.Auth,
+		P256Dh: keys.P256dh,
+	}
+}
+
+func (keys *Keys) FromProtobuf(in *proto.Subscription_Keys) {
+	keys.Auth = in.Auth
+	keys.P256dh = in.P256Dh
+}
+
+func (keys *Keys) ToWebpushKeys() webpush.Keys {
+	return webpush.Keys{
+		Auth:   keys.Auth,
+		P256dh: keys.P256dh,
+	}
+}
+
+func (sub *Subscription) ToWebpushSubScription() webpush.Subscription {
+	return webpush.Subscription{
+		Endpoint: sub.Endpoint,
+		Keys:     sub.Keys.ToWebpushKeys(),
+	}
 }

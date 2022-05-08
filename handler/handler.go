@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -45,11 +46,12 @@ var defaultConfig ClientConfig = ClientConfig{
 }
 
 type Handler struct {
-	natsConnection *nats.Connection
-	grpcConnection *grpc.ClientConn
-	toolsGRPC      proto.ToolsClient
-	usersGRPC      proto.UsersClient
-	habitsGRPC     proto.HabitsClient
+	natsConnection    *nats.Connection
+	grpcConnection    *grpc.ClientConn
+	toolsGRPC         proto.ToolsClient
+	usersGRPC         proto.UsersClient
+	habitsGRPC        proto.HabitsClient
+	subscriptionsGRPC proto.SubscriptionsClient
 }
 
 func New(args ...string) (*Handler, error) {
@@ -83,6 +85,7 @@ func New(args ...string) (*Handler, error) {
 	handler.toolsGRPC = proto.NewToolsClient(handler.grpcConnection)
 	handler.usersGRPC = proto.NewUsersClient(handler.grpcConnection)
 	handler.habitsGRPC = proto.NewHabitsClient(handler.grpcConnection)
+	handler.subscriptionsGRPC = proto.NewSubscriptionsClient(handler.grpcConnection)
 
 	go handler.SetupGin()
 
@@ -109,63 +112,6 @@ func (handler *Handler) ToolsPing() (time.Time, error) {
 		return time.Time{}, err
 	}
 	return pingTime.AsTime(), nil
-}
-
-// TODO(Mitch): Make this more generic using a wrapper function
-func (handler *Handler) UsersGet(user *proto.User) (*proto.ListUsers, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	users, err := handler.usersGRPC.Get(ctx, user)
-	return users, err
-}
-
-func (handler *Handler) UsersNew(user *proto.User) (*proto.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	user, err := handler.usersGRPC.New(ctx, user)
-	return user, err
-}
-
-func (handler *Handler) UsersDelete(user *proto.User) (*empty.Empty, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	empty_, err := handler.usersGRPC.Delete(ctx, user)
-	return empty_, err
-}
-
-func (handler *Handler) UserUpdate(user *proto.User) (*proto.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	user, err := handler.usersGRPC.Update(ctx, user)
-	return user, err
-}
-
-func (handler *Handler) HabitsGet(habit *proto.Habit) (*proto.ListHabits, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	habits, err := handler.habitsGRPC.Get(ctx, habit)
-	return habits, err
-}
-
-func (handler *Handler) HabitsNew(habit *proto.Habit) (*proto.Habit, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	habit, err := handler.habitsGRPC.New(ctx, habit)
-	return habit, err
-}
-
-func (handler *Handler) HabitsDelete(habit *proto.Habit) (*empty.Empty, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	empty_, err := handler.habitsGRPC.Delete(ctx, habit)
-	return empty_, err
-}
-
-func (handler *Handler) HabitUpdate(habit *proto.Habit) (*proto.Habit, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GRPC_TIMEOUT)
-	defer cancel()
-	habit, err := handler.habitsGRPC.Update(ctx, habit)
-	return habit, err
 }
 
 func (handler *Handler) Close() {
@@ -203,78 +149,6 @@ func (handler *Handler) GinPing(c *gin.Context) {
 	}
 }
 
-func (handler *Handler) GinFindUsers(c *gin.Context) {
-	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
-		return handler.UsersGet(user.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinNewUser(c *gin.Context) {
-	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
-		if user.ID != 0 {
-			return nil, fmt.Errorf("user.ID must be not set or 0")
-		}
-		if user.Nickname == "" {
-			return nil, fmt.Errorf("user.Nickname must be set and not empty")
-		}
-		return handler.UsersNew(user.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinDeleteUser(c *gin.Context) {
-	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
-		if user.ID == 0 {
-			return nil, fmt.Errorf("user.ID must be set and not empty")
-		}
-		return handler.UsersDelete(user.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinUpdateUser(c *gin.Context) {
-	GinGrpcCall(c, func(user *database.User) (interface{}, error) {
-		if user.ID == 0 {
-			return nil, fmt.Errorf("user.ID must be set and not empty")
-		}
-		return handler.UserUpdate(user.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinFindHabits(c *gin.Context) {
-	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
-		return handler.HabitsGet(habit.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinNewHabit(c *gin.Context) {
-	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
-		if habit.ID != 0 {
-			return nil, fmt.Errorf("habit.ID must be not set or 0")
-		}
-		if habit.Name == "" {
-			return nil, fmt.Errorf("habit.Name must be set and not empty")
-		}
-		return handler.HabitsNew(habit.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinDeleteHabit(c *gin.Context) {
-	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
-		if habit.ID == 0 {
-			return nil, fmt.Errorf("habit.ID must be set and not empty")
-		}
-		return handler.HabitsDelete(habit.ToProtobuf())
-	})
-}
-
-func (handler *Handler) GinUpdateHabit(c *gin.Context) {
-	GinGrpcCall(c, func(habit *database.Habit) (interface{}, error) {
-		if habit.ID == 0 {
-			return nil, fmt.Errorf("habit.ID must be set and not empty")
-		}
-		return handler.HabitUpdate(habit.ToProtobuf())
-	})
-}
-
 type GrpcExecutor[Input any] func(input *Input) (interface{}, error)
 
 func GinGrpcCall[Input any](c *gin.Context, grpcOperation GrpcExecutor[Input]) {
@@ -299,28 +173,50 @@ func GinGrpcCall[Input any](c *gin.Context, grpcOperation GrpcExecutor[Input]) {
 	}
 }
 
-type Keys struct {
-	Auth   string `json:"auth" binding:"required"`
-	P256dh string `json:"p256dh" binding:"required"`
+// {"title":"Nice Bro","body":"lets get this bread","vibrate":[100,50,100],"actions":[{"action":"close","title":"Close notification","icon":"https://test.zyrn.dev/gigachad.jpg"}]}
+type Notification struct {
+	Title   string `json:"title" binding:"required"`
+	Body    string `json:"body" binding:"required"`
+	Vibrate []int  `json:"vibrate,omitempty"`
+	Actions []struct {
+		Action string `json:"action" binding:"required"`
+		Title  string `json:"title" binding:"required"`
+		Icon   string `json:"icon" binding:"required"`
+	} `json:"actions,omitempty"`
 }
 
-func (keys *Keys) ToWebpushKeys() webpush.Keys {
-	return webpush.Keys{
-		Auth:   keys.Auth,
-		P256dh: keys.P256dh,
-	}
+func sendSuccess(c *gin.Context, statusCode int, data any) {
+	c.JSON(statusCode, gin.H{
+		"result": "success",
+		"data":   data,
+	})
 }
 
-type Subscription struct {
-	Endpoint string `json:"endpoint" binding:"required"`
-	Keys     Keys   `json:"keys" binding:"required"`
+func sendError(c *gin.Context, statusCode int, err error) {
+	c.JSON(statusCode, gin.H{
+		"result": "error",
+		"error":  err.Error(),
+	})
 }
 
-func (sub *Subscription) ToWebpushSubScription() webpush.Subscription {
-	return webpush.Subscription{
-		Endpoint: sub.Endpoint,
-		Keys:     sub.Keys.ToWebpushKeys(),
-	}
+func sendOk(c *gin.Context, data any) {
+	sendSuccess(c, 200, data)
+}
+
+func sendCreated(c *gin.Context, data any) {
+	sendSuccess(c, 201, data)
+}
+
+func sendClientError(c *gin.Context, err error) {
+	sendError(c, 400, err)
+}
+
+func sendNotFound(c *gin.Context, err error) {
+	sendError(c, 404, err)
+}
+
+func sendServerError(c *gin.Context, err error) {
+	sendError(c, 500, err)
 }
 
 func (handler *Handler) SetupGin() {
@@ -344,34 +240,38 @@ func (handler *Handler) SetupGin() {
 	r.POST("/habits/update", handler.GinUpdateHabit)
 
 	r.POST("/users/subscribe", func(c *gin.Context) {
-		var input Subscription
-		if err := c.BindJSON(&input); err == nil {
-			sub := input.ToWebpushSubScription()
+		var input database.Subscription
 
-			resp, err := webpush.SendNotification([]byte("Test"), &sub, &webpush.Options{
-				Subscriber:      "mitch@zyrn.dev",
-				VAPIDPublicKey:  "BH3wNAfqSwzLzduT_KsuE0PoIKRMooJQ_On_iv6uQfNWDc5CNXsH6GYErTQ-OrOTe3LO6H32fJV6eyINpsqHpDg",
-				VAPIDPrivateKey: "-DWpYb3--uc2Jo1QRpFAGnZigtBoSgItlwUtP3JN0f8",
-				TTL:             30,
-			})
-
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": err.Error(),
-				})
-			} else {
-				defer resp.Body.Close()
-				log.Debug().Msgf("%+v", resp)
-				c.JSON(200, gin.H{
-					"message": "subbed",
-				})
-			}
-		} else {
-			c.JSON(500, gin.H{
-				"message": fmt.Sprintf("%+v", err),
-			})
+		if err := c.BindJSON(&input); err != nil {
+			sendClientError(c, err)
+			return
 		}
 
+		subscription := input.ToWebpushSubScription()
+
+		notifcation := Notification{
+			Title: "Nice Bro Test",
+			Body:  "This is a test notification",
+		}
+		message, err := json.Marshal(notifcation)
+		if err != nil {
+			sendServerError(c, err)
+			return
+		}
+
+		resp, err := webpush.SendNotification(message, &subscription, &webpush.Options{
+			Subscriber:      "mitch@zyrn.dev",
+			VAPIDPublicKey:  "BH3wNAfqSwzLzduT_KsuE0PoIKRMooJQ_On_iv6uQfNWDc5CNXsH6GYErTQ-OrOTe3LO6H32fJV6eyINpsqHpDg",
+			VAPIDPrivateKey: "-DWpYb3--uc2Jo1QRpFAGnZigtBoSgItlwUtP3JN0f8",
+			TTL:             30,
+		})
+		if err != nil {
+			sendServerError(c, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		sendOk(c, "nice")
 	})
 	// r.POST("/users/unsubscribe", func(c *gin.Context) {})
 

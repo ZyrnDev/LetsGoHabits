@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "./../proto";
+
+message Subscription {
+    message Keys {
+        string auth = 1;
+        string p256dh = 2;
+    }
+
+    fixed64 id = 1;
+    fixed64 userId = 2;
+    fixed64 habitId = 3;
+    string endpoint = 4;
+    Keys keys = 5;
+    
+    google.protobuf.Timestamp created_at = 100;
+    google.protobuf.Timestamp updated_at = 101;
+    // google.protobuf.Timestamp deleted_at = 5;
+}
+
+message ListSubscriptions {
+    repeated Subscription subscriptions = 1;
+}
+
+service Subscriptions {
+    rpc New(Subscription) returns (Subscription);
+    rpc Delete(Subscription) returns (google.protobuf.Empty);
+    rpc Get(Subscription) returns (ListSubscriptions);
+    rpc Update(Subscription) returns (Subscription);
+}

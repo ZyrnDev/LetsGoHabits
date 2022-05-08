@@ -83,6 +83,7 @@ func New(args ...string) (*Engine, error) {
 	proto.RegisterToolsServer(engine.grpc, &grpc.ToolsServer{})
 	proto.RegisterUsersServer(engine.grpc, &grpc.UsersServer{Database: engine.database})
 	proto.RegisterHabitsServer(engine.grpc, &grpc.HabitsServer{Database: engine.database})
+	proto.RegisterSubscriptionsServer(engine.grpc, &grpc.SubscriptionsServer{Database: engine.database})
 
 	engine.scheduler = gocron.NewScheduler(time.Local)
 	go engine.Start()
