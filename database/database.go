@@ -14,40 +14,53 @@ import (
 type Database = *gorm.DB
 type Config = gorm.Config
 
+type ProtobufSerial[ProtobufType any] interface {
+	ToProtobuf() *ProtobufType
+	FromProtobuf(*ProtobufType)
+}
+
+type HasID interface {
+	GetID() uint
+}
+
 type Model struct {
-	ID        uint `gorm:"primarykey form:"id" json:"id""`
+	ID        uint `gorm:"primarykey form:"id" json:"id" required:"delete,update"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+func (model Model) GetID() uint {
+	return model.ID
+}
+
 type User struct {
 	Model
-	Nickname      string         `gorm:"unique;index" form:"nickname" json:"nickname"`
+	Nickname      string         `gorm:"unique;index" form:"nickname" json:"nickname" required:"create"`
 	Habits        []Habit        `gorm:"foreignKey:AuthorId"`
 	Subscriptions []Subscription `gorm:"foreignKey:UserId"`
 }
 
 type Habit struct {
 	Model
-	Name          string         `form:"name" json:"name"`
+	Name          string         `form:"name" json:"name" required:"create"`
 	Description   string         `form:"description" json:"description"`
-	AuthorId      uint           `form:"authorId" json:"authorId"`
+	AuthorId      uint           `form:"authorId" json:"authorId" required:"create"`
 	Subscriptions []Subscription `gorm:"foreignKey:HabitId"`
 	// Events []Event
 }
 
 type Subscription struct {
 	Model
-	UserId   uint   `form:"userId" json:"userId"`
-	HabitId  uint   `form:"habitId" json:"habitId"`
-	Endpoint string `form:"endpoint" json:"endpoint"`
-	Keys     `form:"keys" json:"keys"`
+	UserId   uint   `form:"userId" json:"userId" required:"create"`
+	HabitId  uint   `form:"habitId" json:"habitId" required:"create"`
+	Endpoint string `form:"endpoint" json:"endpoint" required:"create"`
+	Keys     `form:"keys" json:"keys" required:"create"`
 }
 
 type Keys struct {
-	Auth   string `json:"auth"`
-	P256dh string `json:"p256dh"`
+	Auth   string `json:"auth" required:"create"`
+	P256dh string `json:"p256dh" required:"create"`
 }
 
 func New(connectionString string, conf *Config) (Database, error) {
@@ -56,7 +69,7 @@ func New(connectionString string, conf *Config) (Database, error) {
 		return nil, err
 	}
 
-	db.AutoMigrate(&User{}, &Habit{})
+	db.AutoMigrate(&User{}, &Habit{}, &Subscription{})
 
 	return db, nil
 }

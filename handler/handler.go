@@ -153,6 +153,7 @@ type GrpcExecutor[Input any] func(input *Input) (interface{}, error)
 
 func GinGrpcCall[Input any](c *gin.Context, grpcOperation GrpcExecutor[Input]) {
 	var input Input
+
 	if err := c.BindJSON(&input); err == nil {
 		data, err := grpcOperation(&input)
 
