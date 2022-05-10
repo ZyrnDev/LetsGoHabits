@@ -240,6 +240,11 @@ func (handler *Handler) SetupGin() {
 	r.POST("/habits/delete", handler.GinDeleteHabit)
 	r.POST("/habits/update", handler.GinUpdateHabit)
 
+	r.POST("/subscriptions/find", handler.GinFindSubscriptions)
+	r.POST("/subscriptions/create", handler.GinNewSubscription)
+	r.POST("/subscriptions/delete", handler.GinDeleteSubscription)
+	r.POST("/subscriptions/update", handler.GinUpdateSubscription)
+
 	r.POST("/users/subscribe", func(c *gin.Context) {
 		var input database.Subscription
 
